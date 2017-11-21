@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head><title>Error UNet</title></head>
+<body>
+  <div style="width: 800px; margin: 50px auto;">
+    <canvas id='UNetFold' width="800" height="600" style="width: 100%; height: 600px; border: 1px solid black;"></canvas>
+    <input id='UNetAnim' type='range' min='0' max='1' step='any' value='1' style="display: block; width: 100%;"></input>
+  </div>
+  <script>
+var SZ = 32
+var cUNetFold = document.getElementById("UNetFold");
+var ctxUNetFold = cUNetFold.getContext("2d");
+
+function drawArrow(fromx, fromy, tox, toy, c){
+  var A = 10;
+  var headlen = 10;
+  var angle = Math.atan2(toy-fromy, tox-fromx);
+  c.beginPath();
+  c.moveTo(fromx, fromy);
+  c.lineTo(tox, toy);
+  c.moveTo(tox, toy);
+  // c.moveTo(tox, toy);
+  c.lineTo(tox-headlen*Math.cos(angle-Math.PI/A),toy-headlen*Math.sin(angle-Math.PI/A));
+  // c.moveTo(tox, toy);
+  c.lineTo(tox-headlen*Math.cos(angle+Math.PI/A),toy-headlen*Math.sin(angle+Math.PI/A));
+  c.lineTo(tox, toy);
+  c.stroke();
+  c.fill();
+}
+
+
+function drawBox(x, y, skew, c) {
+  s = SZ * skew;
+  c.beginPath();
+  c.moveTo(x - SZ / 2 + s, y - SZ / 2 + s/2);
+  c.lineTo(x + SZ / 2 + s, y - SZ / 2 + s/2);
+  c.lineTo(x + SZ / 2 - s, y + SZ / 2 - s/2);
+  c.lineTo(x - SZ / 2 - s, y + SZ / 2 - s/2);
+  c.lineTo(x - SZ / 2 + s, y - SZ / 2 + s/2);
+  c.fill();
+  c.stroke();
+}
+
+function p2skew(progress) {
+  return progress / 4;
+}
+
+function linp(p, a, b) {
+  return a + p * (b - a);
+}
+
+
+function drawFoldF0(p, c) {  
+  for (var i = 0; i < 4; i++) {
+    c.fillStyle = "MediumSlateBlue";
+    drawBox(
+      linp(p, 50, 190 + (SZ + 8) * (2 * i)), 
+      linp(p, 50 + SZ * i, 340),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 4; i++) {
+    c.fillStyle = "LightSkyBlue";
+    drawBox(
+      linp(p, 120, 190 + (SZ + 8) * (2 * i)),
+      linp(p, 50 + SZ * i, 340 - (SZ + 8)),
+      p2skew(p), c);
+  }
+}
+
+function drawFoldF1(p, c) {
+  for (var i = 0; i < 2; i++) {
+    c.fillStyle = "MediumSlateBlue";
+    drawBox(
+      linp(p, 120, 190 + (SZ + 8) * (2 * i + 2)),
+      linp(p, 216 + SZ * i, 220),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 2; i++) {
+    c.fillStyle = "LightSkyBlue";
+    drawBox(
+      linp(p, 190, 190 + (SZ + 8) * (2 * i + 2)),
+      linp(p, 216 + SZ * i, 220 - (SZ + 8)),
+      p2skew(p), c);
+  }
+}
+
+function drawFoldF2(p, c) {
+  for (var i = 0; i < 1; i++) {
+    c.fillStyle = "MediumSlateBlue";
+    drawBox(
+      linp(p, 190, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 320 + SZ * i, 100),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 1; i++) {
+    c.fillStyle = "LightSkyBlue";
+    drawBox(
+      linp(p, 260, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 320 + SZ * i, 100 - (SZ + 8)),
+      p2skew(p), c);
+  }
+}
+
+function drawFoldE2(p, c) {
+  for (var i = 0; i < 1; i++) {
+    c.fillStyle = "Pink";
+    drawBox(
+      linp(p, 330, 190 + (SZ + 8) * (2 * i + 4)),
+      linp(p, 320 + SZ * i, 100 - (SZ + 8)),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 1; i++) {
+    c.fillStyle = "Tomato";
+    drawBox(
+      linp(p, 400, 190 + (SZ + 8) * (2 * i + 4)),
+      linp(p, 320 + SZ * i, 100),
+      p2skew(p), c);
+  }
+}
+
+function drawFoldE1(p, c) {
+  for (var i = 0; i < 2; i++) {
+    c.fillStyle = "Pink";
+    drawBox(
+      linp(p, 400, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 216 + SZ * i, 220 - (SZ + 8)),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 2; i++) {
+    c.fillStyle = "Tomato";
+    drawBox(
+      linp(p, 470, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 216 + SZ * i, 220),
+      p2skew(p), c);
+  }
+}
+
+function drawFoldE0(p, c) {
+  for (var i = 0; i < 4; i++) {
+    c.fillStyle = "Pink";
+    drawBox(
+      linp(p, 470, 190 + (SZ + 8) * (2 * i + 1)),
+      linp(p, 50 + SZ * i, 340 - (SZ + 8)),
+      p2skew(p), c);
+  }
+  for (var i = 0; i < 4; i++) {
+    c.fillStyle = "Tomato";
+    drawBox(
+      linp(p, 540, 190 + (SZ + 8) * (2 * i + 1)),
+      linp(p, 50 + SZ * i, 340),
+      p2skew(p), c);
+  }
+}
+
+
+function convArrows(p, c) {
+  // F conv
+  
+  for (var i = 0; i < 4; i++) {
+    drawArrow(
+      linp(p, 70, 190 + (SZ + 8) * (2 * i)),
+      linp(p, 98, 328),
+      linp(p, 98, 190 + (SZ + 8) * (2 * i)),
+      linp(p, 98, 312),
+      c);
+  }
+  for (var i = 0; i < 2; i++) {
+    drawArrow(
+      linp(p, 140, 190 + (SZ + 8) * (2 * i + 2)),
+      linp(p, 232, 208),
+      linp(p, 168, 190 + (SZ + 8) * (2 * i + 2)),
+      linp(p, 232, 192),
+      c);
+  }
+  drawArrow(
+    linp(p, 210, 190 + (SZ + 8) * (3)),
+    linp(p, 320, 88),
+    linp(p, 238, 190 + (SZ + 8) * (3)),
+    linp(p, 320, 72),
+    c);
+
+  // E conv
+  for (var i = 0; i < 4; i++) {
+    drawArrow(
+      linp(p, 490, 190 + (SZ + 8) * (2 * i + 1)),
+      linp(p, 98, 312),
+      linp(p, 518, 190 + (SZ + 8) * (2 * i + 1)),
+      linp(p, 98, 328),
+      c);
+  }
+  for (var i = 0; i < 2; i++) {
+    drawArrow(
+      linp(p, 420, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 232, 192),
+      linp(p, 448, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 232, 208),
+      c);
+  }
+  drawArrow(
+      linp(p, 350, 190 + (SZ + 8) * (4)),
+      linp(p, 320, 72),
+      linp(p, 378, 190 + (SZ + 8) * (4)),
+      linp(p, 320, 88),
+      c);
+
+/*
+    drawArrow(
+      linp(p, , ),
+      linp(p, , ),
+      linp(p, , ),
+      linp(p, , ),
+      c);
+*/
+
+  // Downsample
+  for (var i = 0; i < 4; i++) {
+    drawArrow(
+      linp(p, 120, 190 + (SZ + 8) * (2 * i + 0)),
+      linp(p, 168, 316 - SZ),
+      linp(p, 120, 190 + (SZ + 8) * (2 * (i/2|0) + 2)),
+      linp(p, 194, 204 + SZ),
+      c);
+  }
+  for (var i = 0; i < 2; i++) {
+    drawArrow(
+      linp(p, 120 + 70, 190 + (SZ + 8) * (2 * i + 2)),
+      linp(p, 174 + 3 * SZ, 196 - SZ),
+      linp(p, 120 + 70, 190 + (SZ + 8) * (2 * (i/2|0) + 3)),
+      linp(p, 200 + 3 * SZ, 84 + SZ),
+      c);
+  }
+  // Upsample
+  for (var i = 0; i < 2; i++) {
+    drawArrow(
+      linp(p, 120 + 4 * 70, 190 + (SZ + 8) * (2 * (i/2|0) + 4)),
+      linp(p, 200 + 3 * SZ, 84 + SZ),
+      linp(p, 120 + 4 * 70, 190 + (SZ + 8) * (2 * i + 3)),
+      linp(p, 174 + 3 * SZ, 196 - SZ),
+      c);
+  }
+  for (var i = 0; i < 4; i++) {
+    drawArrow(
+      linp(p, 120 + 5 * 70, 190 + (SZ + 8) * (2 * (i/2|0) + 3)),
+      linp(p, 194, 204 + SZ),
+      linp(p, 120 + 5 * 70, 190 + (SZ + 8) * (2 * i + 1)),
+      linp(p, 168, 316 - SZ),
+      c);
+  }
+  
+  // Copies (TODO)
+  /*
+  drawArrow(140 + 10, 98, 448 - 10, 98, c);
+  drawArrow(210 + 10, 232, 378 - 10, 232, c)
+  drawArrow(280, 320, 308, 320, c);
+  */
+}
+
+
+function drawFoldAnim(progress) {
+  c = ctxUNetFold;
+  c.clearRect(0, 0, cUNetFold.width, cUNetFold.height);
+  c.lineWidth = 2;
+  c.strokeStyle = "black";    
+  drawFoldF0(progress, c);
+  drawFoldF1(progress, c);
+  drawFoldF2(progress, c);
+  drawFoldE2(progress, c);
+  drawFoldE1(progress, c);
+  drawFoldE0(progress, c);
+  c.lineWidth = 3;
+  c.fillStyle = "black";
+  convArrows(progress, c);
+}
+
+
+var anim = document.getElementById('UNetAnim');
+anim.addEventListener('input', function(e) { drawFoldAnim(anim.value); })
+drawFoldAnim(anim.value);
+
+  </script>
+</body>
+</html>
