@@ -41,7 +41,7 @@ class ErrorUNet:
         # Create Variables:
         for at in range(depth):
             atS = str(at)
-            self.eeVars.append(self.batch1dConv(               2, at == 0,   False, "eeVar_" + atS)) # mega hack: transposed conv2d invert out & in channels
+            self.eeVars.append(self.batch1dConv(               2, at == 0,   False, "eeVar_" + atS)) # mega hack: transposed conv2d invert out & in channel params
             self.feVars.append(self.batch1dConv(betweenLayerSize, at == 0, at == 0, "feVar_" + atS))
             self.efVars.append(self.batch1dConv(betweenLayerSize, at == 0, at == 0, "efVar_" + atS))
             self.ffVars.append(self.batch1dConv(               2, at == 1,   False, "ffVar_" + atS))
@@ -52,9 +52,7 @@ class ErrorUNet:
             windowSize = topLayerWindow * (2 ** (depth - 1 - at))
             print ("NODES on level " + str(at) + " = " + str(windowSize))
             channels = 1 if at == 0 else self.kernelsPerLayer
-            # self.oldFLayers.append(tf.placeholder(tf.float32, [batchSize, windowSize, channels], name="oldF_" + atS))
             self.oldELayers.append(tf.placeholder(tf.float32, [batchSize, windowSize, channels], name="oldE_" + atS))
-            # self.prevFLayers.append(np.random.randn(batchSize, windowSize, channels))
             self.prevELayers.append(np.random.randn(batchSize, windowSize, channels))
             self.beVars.append(self.batch1dConv(windowSize, at == 0, at == 0, "beVar_" + atS, isBias=True))
             self.bfVars.append(self.batch1dConv(windowSize, at == 0, at == 0, "bfVar_" + atS, isBias=True))
@@ -68,13 +66,8 @@ class ErrorUNet:
             if at == 0:
                 # B x W => B x W x 1
                 inputExpanded = tf.expand_dims(self.inputHolder, 2)
-                # fLayer = self.convWithBias("oldF_" + str(at), [
-                    # (inputExpanded, self.ffVars[at], 'FF'),
-                    # (self.oldELayers[at], self.efVars[at], 'EF')
-                # ], self.bfVars[at])
                 fLayer = inputExpanded
             else:
-                # stride = topLayerWindow * (2 ** (depth - 1 - at))
                 fLayer = self.convWithBias("oldF_" + str(at), [
                     (lastLayer, self.ffVars[at], 'FF'),
                     (self.oldELayers[at], self.efVars[at], 'EF')
@@ -94,7 +87,6 @@ class ErrorUNet:
                     (self.oldFLayers[at], self.feVars[at], 'FE')
                 ], self.beVars[at])
             else:
-                # stride = topLayerWindow * (2 ** (depth - 1 - at))
                 eLayer = self.convWithBias("E_" + str(at), [
                     (lastLayer, self.eeVars[at], 'EE'),
                     (self.oldFLayers[at], self.feVars[at], 'FE')
@@ -111,11 +103,9 @@ class ErrorUNet:
             fLayer = None
             if at == 0:
                 # B x W => B x W x 1
-                # fLayer = tf.expand_dims(self.inputHolder, 2)
                 inputExpanded = tf.expand_dims(self.inputHolder, 2)
                 fLayer = inputExpanded
             else:
-                # stride = topLayerWindow * (2 ** (depth - 1 - at))
                 fLayer = self.convWithBias("F_" + str(at), [
                     (lastLayer, self.ffVars[at], 'FF'),
                     (self.ELayers[at], self.efVars[at], 'EF')
@@ -123,17 +113,18 @@ class ErrorUNet:
             self.FLayers.append(fLayer)
             lastLayer = fLayer
 
-
-        print ("HACK, EL:")
+        # Debugging code:
+        print ("E and F layer sizes:")
         for el in self.ELayers:
             print (el.get_shape())
-        print ("HACK, FL:")
         for fl in self.FLayers:
             print (fl.get_shape())
 
-        outHolderResized = tf.expand_dims(self.outputHolder, 2) # B x W => B x W x 1
+        # B x W => B x W x 1
+        outHolderResized = tf.expand_dims(self.outputHolder, 2)
 
         if errorWeight == 0:
+            # Without error loss, use the E layers as predictions (like UNet), not errors.
             self.prediction = self.ELayers[0]
             self.errorLoss = tf.constant(0)
             self.predictionLoss = tf.nn.l2_loss(self.prediction - outHolderResized) / self.windowSize
@@ -141,7 +132,6 @@ class ErrorUNet:
         else:
             # Output = Last Input plus predicted error
             self.prediction = self.FLayers[0] + self.ELayers[0]
-
             allNewEButFirst = tf.concat(self.ELayers[1:], 1)
             allOldFButFirst = tf.concat(self.oldFLayers[1:], 1)
             allNewFButFirst = tf.concat(self.FLayers[1:], 1)
@@ -157,7 +147,6 @@ class ErrorUNet:
         globalStep = tf.Variable(0, trainable=False)
         decayedLearningRate = \
             tf.train.exponential_decay(learningRate, globalStep, 100, 0.75, staircase=True)
-
         self.optimizer = \
             tf.train.AdamOptimizer(decayedLearningRate).minimize(self.totalLoss)
             # tf.train.GradientDescentOptimizer(decayedLearningRate).minimize(self.totalLoss)
@@ -174,7 +163,7 @@ class ErrorUNet:
             return tf.Variable(np.random.randn(width, inChannels, outChannels), dtype=tf.float32, name=name)
 
     def convWithBias(self, name, convolutions, bias):
-        # TODO: Dilation, not stride
+        # TODO: Dilation, not stride?
         result = bias
         print ("  * bias shape (= output shape): " + str(bias.get_shape()))
         for convolution in convolutions:
@@ -218,6 +207,7 @@ class ErrorUNet:
         return tf.nn.conv1d(value, kernel, stride=1, padding='SAME')
 
     def train(self, sess, inTensor, outTensor):
+        # Given input and true output, update weights based from the optimizer
         if HACK_USE_LAST_VALUE:
             prediction = np.roll(inTensor, -1, axis=1)
             prediction[0, -1] = prediction[0, -2]
@@ -241,6 +231,7 @@ class ErrorUNet:
         return eLoss, pLoss, tLoss
 
     def generate(self, sess, inTensor):
+        # Given input, generate the predicted output.
         if HACK_USE_LAST_VALUE:
             prediction = np.roll(inTensor, -1, axis=1)
             prediction[0, -1] = prediction[0, -2]
@@ -256,6 +247,7 @@ class ErrorUNet:
         return prediction[:, :, 0]
 
     def debugValues(self, sess, inTensor):
+        # Print all the variables and placeholders when given a particular input.
         inData = {
             self.inputHolder: inTensor,
         }

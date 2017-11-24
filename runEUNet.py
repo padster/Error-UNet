@@ -7,20 +7,6 @@ from tqdm import tqdm
 
 import inputReader
 import errorUnet
-# import trainer
-# import viz
-
-# DEPTH = 3
-# TOP_WINDOW_SIZE = 1
-# KERNELS_PER_LAYER = 1
-# BETWEEN_LAYER_WIDTH = 1
-# ERROR_WEIGHT = 1
-# BOTTOM_WINDOW_SIZE = TOP_WINDOW_SIZE * (2 ** (DEPTH - 1))
-
-# LEARNING_RATE = 0.00003
-# EPOCHS = 1
-# SAMPLES = 1000
-
 
 def fullScreen():
     pass
@@ -28,11 +14,6 @@ def fullScreen():
     # mng.resize(*mng.window.maxsize())
 
 def runTraining(net, data, epochs, runGeneration=True):
-    # fullScreen()
-    # plt.plot(data)
-    # plt.title('Input')
-    # plt.show()
-
     usePredictionToGenerate = True
 
     # Initialize the variables (i.e. assign their default value)
@@ -58,6 +39,7 @@ def runTraining(net, data, epochs, runGeneration=True):
             avPLosses.append(np.mean(pLosses))
             avTLosses.append(np.mean(tLosses))
             if epoch == epochs - 1:
+                # Visualize results after the final pass:
                 fullScreen()
                 plt.plot(pLosses, label="P loss, final epoch")
                 plt.plot(eLosses, label="E loss, final epoch")
@@ -102,12 +84,9 @@ def runTraining(net, data, epochs, runGeneration=True):
                 nextSample = prediction[0][-1]
                 predicted.append(nextSample)
                 actual.append(data[i + net.windowSize])
-                # print (inData, end='')
-                # print (' == > ', end='')
-                # print (prediction)
-                # oneBack.append(data[at+BOTTOM_WINDOW_SIZE-1])
                 inData = np.roll(inData, -1, axis=1)
                 inData[0][-1] = nextSample if usePredictionToGenerate else data[i + net.windowSize]
+            # Show generated.
             fullScreen()
             plt.plot(predicted, label="Prediction")
             plt.plot(actual, label="Actual")
@@ -115,6 +94,7 @@ def runTraining(net, data, epochs, runGeneration=True):
             plt.legend()
             plt.show()
 
+# Example training against straight line input
 def testRunLine():
     depth = 4
     topWindowSize = 1
@@ -128,6 +108,7 @@ def testRunLine():
     data = inputReader.generateStraightLine(samples)
     runTraining(net, data, epochs)
 
+# Example training against chaotic input
 def testRunLorenz():
     depth = 5#4
     topWindowSize = 1#2
@@ -141,6 +122,7 @@ def testRunLorenz():
     data = inputReader.generateLorenzData(samples)
     runTraining(net, data, epochs)
 
+# Example training against 'real' audio wave input
 def testRunMusic():
     depth = 4
     topWindowSize = 1
@@ -157,12 +139,6 @@ def testRunMusic():
 
 
 def main():
-    # Generate from other network, using same params
-    # print("CREATING TRUTH NET")
-    # truthNet = errorUnet.ErrorUNet(
-        # DEPTH, TOP_WINDOW_SIZE, KERNELS_PER_LAYER, LEARNING_RATE, BETWEEN_LAYER_WIDTH, ERROR_WEIGHT
-    # )
-
     # testRunLine()
     testRunLorenz()
     # testRunMusic()
